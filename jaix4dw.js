@@ -38,7 +38,7 @@ Zobrist key is 64 bits to avoid key duplication.
 "use strict";
 
 const CODE_VERSION = "x4dw"; // dtw distance to win
-const CODE_DATE = "EG0512";
+const CODE_DATE = "EG0515";
 //const isMobi = /Android|iPhone|iPad|iPod/.test(navigator.userAgent);
 const isMobi = false;
 
@@ -108,8 +108,8 @@ const brd_init_debug =
 ];
 */
 
-//const pc_init_debug = pc_init;
-const pc_init_debug = textToBoard(brd_init_debug);
+const pc_init_debug = pc_init;
+//const pc_init_debug = textToBoard(brd_init_debug);
 
 /*/
 
@@ -2554,7 +2554,7 @@ async function think(){
   let score=0, depth=1, elapsed=0;
   const extraDepth = Math.min(MAX_EXTRA_DEPTH, Math.max(0, (16-pieceCount)>>1));
 
-  let histMoves = [], histScores = [];
+  let histMoves = [], histScores = [], histDepths = [];
 
   while(true) {
     if(depth >= 10) await yieldThread(depth, score, elapsed, MIN_THINK_MS);
@@ -2564,7 +2564,7 @@ async function think(){
     score = search(MINALPHA, MAXBETA, depth);
 
     const move = pv[0][0];
-    histMoves.push(move); histScores.push(score);
+    histMoves.push(move); histScores.push(score); histDepths.push(depth);
 
     curBestMove = move; curBestScore = score;
 
@@ -2583,39 +2583,59 @@ async function think(){
   let stats = new Map();
   let start = Math.max(0, histMoves.length - N);
 
-  // detect TB direction over FULL history (important)
-  const window = histScores.slice(start);
-  let hasTBWin  = window.some(s => s >=  800);
-  let hasTBLoss = window.some(s => s <= -800);
-  // safety net:
-  if (stats.size === 0) { curBestMove = histMoves.at(-1); }
+  // windowed slices
+  const windowScores = histScores.slice(start);
+  const windowDepths = histDepths.slice(start);
 
+  // detect TB direction (window only)
+  let hasTBWin  = windowScores.some(s => s >=  800);
+  let hasTBLoss = windowScores.some(s => s <= -800);
+
+  // depth normalization (window only)
+  const maxD = Math.max(...windowDepths);
+
+  // build stats (DEPTH-AWARE)
   for (let i = start; i < histMoves.length; i++) {
-    const m = histMoves[i], s = histScores[i];
-    // 1) global filter (you already have, keep it)
-    if (hasTBWin && s < 800) continue;
-    if (!hasTBWin && hasTBLoss && s > -800) continue;
+    const m = histMoves[i];
+    const s = histScores[i];
+    const d = histDepths[i];
+    // exponential depth weight
+    const w = Math.min(8, Math.pow(2, d - maxD + 3)); // maxD→8, -1→4, -2→2...
+
+    // TB global filter, only reject opposite TB
+    if (hasTBWin  && s <= -800) continue;
+    if (hasTBLoss && s >=  800) continue;
+
     const obj = classifyScore(s);
-    const w = Math.sqrt(i - start + 1); // safer than linear
+    
     let st = stats.get(m);
     if (!st) stats.set(m, st = { count:0, sum:0, best:null, hasTB:false });
-    // 2) per-move TB lock
+    
+    // per-move TB lock
     if (Math.abs(s) >= 800) st.hasTB = true;
-    // If this move already proved TB, ignore later non-TB noise for it
-    if (st.hasTB && Math.abs(s) < 800) continue;
-    st.count += w; st.sum   += s * w;
+    else if (st.hasTB) continue; // ignore weaker noise after TB proven
+    
+    st.count += w; st.sum += s * w;
     if (!st.best || better(obj, st.best)) st.best = obj;
   }
 
+  // fallback (important)
+  if (stats.size === 0) {
+    curBestMove = histMoves.at(-1);
+    return true;
+  }
+
+  // pick best
   let bestMove = 0, bestVal = -Infinity, bestObj = null;
   for (let [m, st] of stats) {
     if (LOGSCORE) console.log(cellToNum[FM(m)]+"-"+cellToNum[TO(m)],st.count);
     const o = st.best;
     let val =
       o.tier * 100000 + o.win * 10000 +
-      (o.tier >= 2 ? (o.win > 0 ? -o.mag : o.mag)
+      (o.tier >= 2 ? (o.win >  0 ? -o.mag :  o.mag)
                    : (o.win >= 0 ?  o.mag : -o.mag)) +
-      st.count * 500 + st.sum / st.count;
+      st.count * 300 + st.sum / st.count;
+    if (histMoves.at(-1) === m) val += 2000; // last-depth bonus
     if (val > bestVal) {
       bestVal = val; bestMove = m; bestObj = o;
     }
@@ -2624,7 +2644,7 @@ async function think(){
   curBestMove = bestMove;
 
   // use bestObj (not last score)
-  if(bestObj && bestObj.win > 0 && bestObj.tier >= 1) {
+  if(bestObj && bestObj.win > 0 && bestObj.tier >= 1 && bestObj.mag >= 400) {
     showStyleIconIcon(false);
     showNewGame(true);
   }
