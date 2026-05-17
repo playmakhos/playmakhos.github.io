@@ -4057,9 +4057,11 @@ function revSide() { side = side===LGHT ? DARK : LGHT; xside = side===LGHT ? DAR
   gameOver(-1); await holdMs(500); await startGame(); gameState=GS_LGHT; 
 };*/
 
+/*
 window.addEventListener('beforeunload', (event) => {
   event.preventDefault();
   event.returnValue = ''; // Required for Chrome
 });
+*/
 
 window.init = init;
