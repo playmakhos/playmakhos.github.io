@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1,
     maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="keywords" content="checkers, jaihorse, makhos, sunhorse">
-  <!-- Open Graph / Facebook -->
+    <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://playmakhos.github.io/">
   <meta property="og:title" content="Sunhorse">
@@ -60,10 +60,11 @@
     #topCenter, #message  { text-align: center; margin-bottom: -1vh; }
     #topRight, #newgame   { text-align: right; }
     #topRight, #cellNumSwitch { color: #aaa; }
-    #bottomRight { text-align: right; min-width: 10%; }
+    #bottomRight { text-align: right; min-width: 15%; }
 
     #newgame {
-      visibility:hidden;
+      /*visibility:hidden;*/
+      display: none;
       padding: 0 5px; border-radius: 5px; background: #eee; color: #555;
       cursor: pointer;
     }
@@ -163,16 +164,16 @@
         <!--img id="styleSwitch" /-->
         <span id="cellNumSwitch">123</span>
         <img id="soundSwitch" src="speaker0.png" />
-        <img id="reloadSwitch" src="reload.png" />
+        <img id="reloadSwitch" src="reload.png" title="reset to level 1"/>
       </span>
     </div>
 
-
     <!--div id="vignetteOuter"></div-->
-    <!--div><span id="footer">&nbsp;</span></div-->
+    <div><span id="footer">&nbsp;</span></div>
   </div>
 
-  <script src="WindowResize4xd.js?t=0909>"></script>
+  <!--script src="WindowResize4dw.js?t=0503>"></script-->
+  <script src="jaix4xd.js?t=0912>"></script>
   <!--script>
     // Resize handler to ensure board stays centered even in frame
     function adjustPageSize() {
